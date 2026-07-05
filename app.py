@@ -4,6 +4,8 @@ from pathlib import Path
 
 DATA_FILE = Path("hoc_vien.csv")
 BUSY_FILE = Path("lich_ban.csv")
+LOGO_PATH = "assets/logo.png"
+BANNER_PATH = "assets/banner.png"
 
 DAYS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"]
 
@@ -29,15 +31,14 @@ COLUMNS = [
 def load_students():
     if DATA_FILE.exists():
         df = pd.read_csv(DATA_FILE)
-
         for col in COLUMNS:
             if col not in df.columns:
-                if col == "Đã nhận tiền dạy":
-                    df[col] = "Chưa"
-                elif col == "Tổng buổi":
+                if col == "Tổng buổi":
                     df[col] = 12
                 elif col == "Đã học":
                     df[col] = 0
+                elif col == "Đã nhận tiền dạy":
+                    df[col] = "Chưa"
                 else:
                     df[col] = ""
 
@@ -46,7 +47,6 @@ def load_students():
         df["Tổng buổi"] = pd.to_numeric(df["Tổng buổi"], errors="coerce").fillna(12).astype(int)
         df["Đã học"] = pd.to_numeric(df["Đã học"], errors="coerce").fillna(0).astype(int)
         df["Đã nhận tiền dạy"] = df["Đã nhận tiền dạy"].fillna("Chưa")
-
         return df[COLUMNS]
 
     return pd.DataFrame(columns=COLUMNS)
@@ -64,8 +64,8 @@ def load_busy_slots():
     return set()
 
 
-def save_busy_slots(busy_slots):
-    pd.DataFrame({"Slot": sorted(list(busy_slots))}).to_csv(
+def save_busy_slots(slots):
+    pd.DataFrame({"Slot": sorted(list(slots))}).to_csv(
         BUSY_FILE, index=False, encoding="utf-8-sig"
     )
 
@@ -91,11 +91,122 @@ def highlight_done(row):
     return [""] * len(row)
 
 
-st.set_page_config(page_title="Quản lý học viên hồ bơi", layout="wide")
-st.title("🏊 QUẢN LÝ HỌC VIÊN & LỊCH DẠY")
+st.set_page_config(
+    page_title="BLT Swimming Club",
+    page_icon="🏊",
+    layout="wide"
+)
+
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg, #e0f7ff 0%, #ffffff 45%, #dff6ff 100%);
+}
+
+.block-container {
+    padding-top: 1.2rem;
+}
+
+.header-box {
+    background: linear-gradient(90deg, #023e8a, #0096c7);
+    padding: 24px;
+    border-radius: 24px;
+    color: white;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.18);
+}
+
+.header-box h1 {
+    margin: 0;
+    font-size: 38px;
+}
+
+.header-box p {
+    font-size: 18px;
+    margin-top: 6px;
+}
+
+.card {
+    background: white;
+    padding: 18px;
+    border-radius: 20px;
+    box-shadow: 0 5px 18px rgba(0,0,0,0.10);
+    text-align: center;
+}
+
+.card h3 {
+    margin: 0;
+    color: #023e8a;
+}
+
+.card p {
+    margin: 6px 0 0 0;
+    font-size: 28px;
+    font-weight: bold;
+    color: #0077b6;
+}
+
+div[data-testid="stTabs"] button {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.busy-cell {
+    background: #ffccd5;
+    color: #9d0208;
+    font-weight: bold;
+}
+
+.free-cell {
+    background: #caf0f8;
+    color: #023e8a;
+    font-weight: bold;
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 df = load_students()
 busy_slots = load_busy_slots()
+
+col_logo, col_title = st.columns([1, 5])
+
+with col_logo:
+    if Path(LOGO_PATH).exists():
+        st.image(LOGO_PATH, width=135)
+    else:
+        st.markdown("## 🏊 BLT")
+
+with col_title:
+    st.markdown("""
+    <div class="header-box">
+        <h1>BLT SWIMMING CLUB</h1>
+        <p>Quản lý học viên & lịch dạy Hồ Bơi Bình Lợi Trung</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+if Path(BANNER_PATH).exists():
+    st.image(BANNER_PATH, use_container_width=True)
+
+total_students = len(df)
+done_students = len(df[df["Đã học"] >= df["Tổng buổi"]]) if not df.empty else 0
+not_paid = len(df[df["Đã nhận tiền dạy"] == "Chưa"]) if not df.empty else 0
+almost_done = len(df[(df["Tổng buổi"] - df["Đã học"]) <= 2]) if not df.empty else 0
+
+c1, c2, c3, c4 = st.columns(4)
+
+with c1:
+    st.markdown(f'<div class="card"><h3>Tổng học viên</h3><p>{total_students}</p></div>', unsafe_allow_html=True)
+
+with c2:
+    st.markdown(f'<div class="card"><h3>Đã đủ buổi</h3><p>{done_students}</p></div>', unsafe_allow_html=True)
+
+with c3:
+    st.markdown(f'<div class="card"><h3>Sắp hết buổi</h3><p>{almost_done}</p></div>', unsafe_allow_html=True)
+
+with c4:
+    st.markdown(f'<div class="card"><h3>Chưa nhận tiền</h3><p>{not_paid}</p></div>', unsafe_allow_html=True)
+
+st.write("")
 
 tab1, tab2, tab3, tab4 = st.tabs([
     "➕ Thêm học viên",
@@ -105,18 +216,23 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 with tab1:
-    st.subheader("Thêm học viên mới")
+    st.subheader("➕ Thêm học viên mới")
 
-    name = st.text_input("Họ tên")
-    phone = st.text_input("Số điện thoại")
-    course = st.selectbox("Khóa học", ["Ếch", "Sải", "Sải ôn ếch", "Khác"])
-    total_lessons = st.number_input("Tổng số buổi", min_value=1, value=12)
-    learned_lessons = st.number_input("Đã học", min_value=0, value=0)
-    paid_teaching = st.checkbox("Đã nhận tiền dạy")
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        name = st.text_input("Họ tên")
+        phone = st.text_input("Số điện thoại")
+        course = st.selectbox("Khóa học", ["Ếch", "Sải", "Sải ôn ếch", "Khác"])
+
+    with col_b:
+        total_lessons = st.number_input("Tổng số buổi", min_value=1, value=12)
+        learned_lessons = st.number_input("Đã học", min_value=0, value=0)
+        paid_teaching = st.checkbox("Đã nhận tiền dạy")
+
     note = st.text_area("Ghi chú")
 
-    st.write("Chọn lịch học:")
-
+    st.markdown("### Chọn lịch học")
     selected_schedule = []
 
     for day in DAYS:
@@ -126,11 +242,10 @@ with tab1:
         ]
 
         selected_cas = st.multiselect(day, available_cas, key=f"add_{day}")
-
         for ca in selected_cas:
             selected_schedule.append(f"{day} - {ca}")
 
-    if st.button("Lưu học viên"):
+    if st.button("💾 Lưu học viên", use_container_width=True):
         if name.strip() == "":
             st.warning("Vui lòng nhập họ tên.")
         elif len(selected_schedule) == 0:
@@ -154,7 +269,7 @@ with tab1:
             st.rerun()
 
 with tab2:
-    st.subheader("Lịch dạy tổng quan")
+    st.subheader("📅 Lịch dạy tổng quan")
 
     rows = []
 
@@ -165,10 +280,10 @@ with tab2:
             slot = f"{day} - {ca}"
 
             if slot in busy_slots:
-                row[day] = "BẬN"
+                row[day] = "🔴 BẬN"
             else:
                 count = len(get_students_by_slot(df, day, ca))
-                row[day] = f"{count} HV"
+                row[day] = f"🟢 {count} HV" if count > 0 else "⚪ Trống"
 
         rows.append(row)
 
@@ -176,7 +291,7 @@ with tab2:
     st.dataframe(overview_df, use_container_width=True, hide_index=True)
 
     st.divider()
-    st.subheader("Xem chi tiết ca dạy")
+    st.subheader("👆 Xem chi tiết ca dạy")
 
     col1, col2 = st.columns(2)
 
@@ -192,7 +307,6 @@ with tab2:
         st.error(f"{selected_slot} là ca bận.")
     else:
         st.info(f"Đang xem: {selected_slot} | {CAS[ca_pick]}")
-
         class_df = get_students_by_slot(df, day_pick, ca_pick)
 
         if class_df.empty:
@@ -219,7 +333,7 @@ with tab2:
                 ].values[0]
             )
 
-            if st.button("Điểm danh / Tăng buổi"):
+            if st.button("✅ Điểm danh / Tăng buổi", use_container_width=True):
                 for hv_id in checked_ids:
                     idx = df[df["Mã HV"] == hv_id].index
 
@@ -233,19 +347,29 @@ with tab2:
                 st.rerun()
 
 with tab3:
-    st.subheader("Danh sách học viên")
+    st.subheader("👨‍🎓 Danh sách học viên")
 
-    if df.empty:
-        st.warning("Chưa có học viên.")
+    search = st.text_input("🔍 Tìm học viên theo tên hoặc số điện thoại")
+
+    show_df = df.copy()
+
+    if search.strip() != "":
+        show_df = show_df[
+            show_df["Họ tên"].astype(str).str.contains(search, case=False, na=False)
+            | show_df["SĐT"].astype(str).str.contains(search, case=False, na=False)
+        ]
+
+    if show_df.empty:
+        st.warning("Không có học viên phù hợp.")
     else:
         st.dataframe(
-            df.style.apply(highlight_done, axis=1),
+            show_df.style.apply(highlight_done, axis=1),
             use_container_width=True,
             hide_index=True
         )
 
     st.divider()
-    st.subheader("Cập nhật tiền dạy")
+    st.subheader("💰 Cập nhật tiền dạy")
 
     if not df.empty:
         money_id = st.selectbox(
@@ -263,14 +387,14 @@ with tab3:
             index=1 if current_money == "Có" else 0
         )
 
-        if st.button("Cập nhật tiền dạy"):
+        if st.button("💾 Cập nhật tiền dạy", use_container_width=True):
             df.loc[df["Mã HV"] == money_id, "Đã nhận tiền dạy"] = new_money
             save_students(df)
             st.success("Đã cập nhật.")
             st.rerun()
 
     st.divider()
-    st.subheader("Xóa học viên")
+    st.subheader("🗑 Xóa học viên")
 
     if not df.empty:
         delete_id = st.selectbox(
@@ -282,7 +406,7 @@ with tab3:
 
         confirm_delete = st.checkbox("Tôi xác nhận muốn xóa học viên này")
 
-        if st.button("Xóa học viên"):
+        if st.button("🗑 Xóa học viên", use_container_width=True):
             if confirm_delete:
                 deleted_name = df.loc[df["Mã HV"] == delete_id, "Họ tên"].values[0]
                 df = df[df["Mã HV"] != delete_id]
@@ -296,16 +420,17 @@ with tab3:
 
     csv = df.to_csv(index=False).encode("utf-8-sig")
     st.download_button(
-        "Tải danh sách CSV",
+        "📥 Tải danh sách CSV",
         csv,
         "danh_sach_hoc_vien.csv",
-        "text/csv"
+        "text/csv",
+        use_container_width=True
     )
 
 with tab4:
-    st.subheader("Cài đặt lịch bận")
+    st.subheader("⚙️ Cài đặt lịch bận")
 
-    st.write("Tick vào ca bạn bận. Ca bận sẽ không hiện khi thêm học viên.")
+    st.info("Tick vào ca bạn bận. Ca bận sẽ không hiện khi thêm học viên.")
 
     new_busy_slots = set()
 
@@ -326,7 +451,7 @@ with tab4:
                 if checked:
                     new_busy_slots.add(slot)
 
-    if st.button("💾 Lưu lịch bận"):
+    if st.button("💾 Lưu lịch bận", use_container_width=True):
         save_busy_slots(new_busy_slots)
         st.success("Đã lưu lịch bận.")
         st.rerun()
