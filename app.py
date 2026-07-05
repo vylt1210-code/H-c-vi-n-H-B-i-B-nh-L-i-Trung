@@ -42,7 +42,16 @@ def load_data():
         return df[columns]
 
     return pd.DataFrame(columns=columns)
+def make_student_id(df):
+    if df.empty or "Mã HV" not in df.columns:
+        return 1
 
+    max_id = pd.to_numeric(df["Mã HV"], errors="coerce").max()
+
+    if pd.isna(max_id):
+        return 1
+
+    return int(max_id) + 1
 st.set_page_config(page_title="Quản lý học viên", layout="wide")
 st.title("QUẢN LÝ HỌC VIÊN & LỊCH DẠY")
 
