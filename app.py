@@ -19,9 +19,25 @@ CAS = {
     "Ca 10": "19:00 - 20:00",
 }
 
+BUSY_SLOTS = [
+    "Thứ 2 - Ca 5",
+    "Thứ 2 - Ca 6",
+    "Thứ 2 - Ca 7",
+    "Thứ 3 - Ca 1",
+    "Thứ 3 - Ca 2",
+    "Thứ 3 - Ca 3",
+    "Thứ 4 - Ca 6",
+    "Thứ 4 - Ca 7",
+    "Thứ 6 - Ca 1",
+    "Thứ 6 - Ca 6",
+    "Thứ 6 - Ca 7",
+    "Thứ 7 - Ca 6",
+    "Thứ 7 - Ca 7",
+]
+
 COLUMNS = [
     "Mã HV", "Họ tên", "SĐT", "Khóa học", "Lịch học",
-    "Tổng buổi", "Đã học", "Ghi chú"
+    "Tổng buổi", "Đã học", "Đã nhận tiền dạy", "Ghi chú"
 ]
 
 
@@ -31,9 +47,16 @@ def load_data():
 
         for col in COLUMNS:
             if col not in df.columns:
-                df[col] = ""
+                if col == "Đã nhận tiền dạy":
+                    df[col] = "Chưa"
+                elif col == "Tổng buổi":
+                    df[col] = 12
+                elif col == "Đã học":
+                    df[col] = 0
+                else:
+                    df[col] = ""
 
-        if df["Mã HV"].isna().all() or (df["Mã HV"].astype(str).str.strip() == "").all():
+        if df["Mã HV"].astype(str).str.strip().eq("").all():
             df["Mã HV"] = range(1, len(df) + 1)
 
         df["Mã HV"] = pd.to_numeric(df["Mã HV"], errors="coerce")
@@ -42,6 +65,8 @@ def load_data():
 
         df["Tổng buổi"] = pd.to_numeric(df["Tổng buổi"], errors="coerce").fillna(12).astype(int)
         df["Đã học"] = pd.to_numeric(df["Đã học"], errors="coerce").fillna(0).astype(int)
+
+        df["Đã nhận tiền dạy"] = df["Đã nhận tiền dạy"].fillna("Chưa")
 
         return df[COLUMNS]
 
@@ -53,7 +78,7 @@ def save_data(df):
 
 
 def make_student_id(df):
-    if df.empty or "Mã HV" not in df.columns:
+    if df.empty:
         return 1
 
     max_id = pd.to_numeric(df["Mã HV"], errors="coerce").max()
@@ -70,6 +95,12 @@ def get_students_by_slot(df, day, ca):
 
     slot = f"{day} - {ca}"
     return df[df["Lịch học"].astype(str).str.contains(slot, na=False)].copy()
+
+
+def highlight_done(row):
+    if int(row["Đã học"]) >= int(row["Tổng buổi"]):
+        return ["background-color: #b6f2b6"] * len(row)
+    return [""] * len(row)
 
 
 st.set_page_config(page_title="Quản lý học viên hồ bơi", layout="wide")
@@ -91,14 +122,21 @@ with tab1:
     course = st.selectbox("Khóa học", ["Ếch", "Sải", "Sải ôn ếch", "Khác"])
     total_lessons = st.number_input("Tổng số buổi", min_value=1, value=12)
     learned_lessons = st.number_input("Đã học", min_value=0, value=0)
+    paid_teaching = st.checkbox("Đã nhận tiền dạy")
     note = st.text_area("Ghi chú")
 
-    st.write("Chọn lịch học:")
+    st.write("Chọn lịch học, app đã ẩn các ca bận:")
 
     selected_schedule = []
 
     for day in DAYS:
-        selected_cas = st.multiselect(day, list(CAS.keys()), key=f"add_{day}")
+        available_cas = [
+            ca for ca in CAS.keys()
+            if f"{day} - {ca}" not in BUSY_SLOTS
+        ]
+
+        selected_cas = st.multiselect(day, available_cas, key=f"add_{day}")
+
         for ca in selected_cas:
             selected_schedule.append(f"{day} - {ca}")
 
@@ -116,6 +154,7 @@ with tab1:
                 "Lịch học": ", ".join(selected_schedule),
                 "Tổng buổi": int(total_lessons),
                 "Đã học": int(learned_lessons),
+                "Đã nhận tiền dạy": "Có" if paid_teaching else "Chưa",
                 "Ghi chú": note.strip()
             }
 
@@ -133,9 +172,13 @@ with tab2:
         row = {"Ca": ca, "Thời gian": time}
 
         for day in DAYS:
-            class_df = get_students_by_slot(df, day, ca)
-            count = len(class_df)
-            row[day] = f"{count} HV"
+            slot = f"{day} - {ca}"
+
+            if slot in BUSY_SLOTS:
+                row[day] = "BẬN"
+            else:
+                class_df = get_students_by_slot(df, day, ca)
+                row[day] = f"{len(class_df)} HV"
 
         schedule_rows.append(row)
 
@@ -144,7 +187,7 @@ with tab2:
 
     st.divider()
 
-    st.subheader("Bấm chọn ca để xem học viên")
+    st.subheader("Xem chi tiết ca dạy")
 
     col1, col2 = st.columns(2)
 
@@ -155,43 +198,48 @@ with tab2:
         ca_pick = st.selectbox("Chọn ca", list(CAS.keys()))
 
     selected_slot = f"{day_pick} - {ca_pick}"
-    st.info(f"Đang xem: {selected_slot} | {CAS[ca_pick]}")
 
-    class_df = get_students_by_slot(df, day_pick, ca_pick)
-
-    if class_df.empty:
-        st.warning("Ca này chưa có học viên.")
+    if selected_slot in BUSY_SLOTS:
+        st.error(f"{selected_slot} là ca bận, không xếp lịch dạy.")
     else:
-        class_df["Buổi hiện tại"] = class_df["Đã học"] + 1
-        class_df["Còn lại"] = class_df["Tổng buổi"] - class_df["Đã học"]
+        st.info(f"Đang xem: {selected_slot} | {CAS[ca_pick]}")
 
-        st.dataframe(
-            class_df[[
-                "Mã HV", "Họ tên", "SĐT", "Khóa học",
-                "Buổi hiện tại", "Đã học", "Tổng buổi", "Còn lại", "Ghi chú"
-            ]],
-            use_container_width=True,
-            hide_index=True
-        )
+        class_df = get_students_by_slot(df, day_pick, ca_pick)
 
-        checked_ids = st.multiselect(
-            "Chọn học viên đã học buổi này",
-            class_df["Mã HV"].tolist(),
-            format_func=lambda x: class_df.loc[class_df["Mã HV"] == x, "Họ tên"].values[0]
-        )
+        if class_df.empty:
+            st.warning("Ca này chưa có học viên.")
+        else:
+            class_df["Buổi hiện tại"] = class_df["Đã học"] + 1
+            class_df["Còn lại"] = class_df["Tổng buổi"] - class_df["Đã học"]
 
-        if st.button("Điểm danh / Tăng buổi"):
-            for hv_id in checked_ids:
-                idx = df[df["Mã HV"] == hv_id].index
+            st.dataframe(
+                class_df[[
+                    "Mã HV", "Họ tên", "SĐT", "Khóa học",
+                    "Buổi hiện tại", "Đã học", "Tổng buổi",
+                    "Còn lại", "Đã nhận tiền dạy", "Ghi chú"
+                ]].style.apply(highlight_done, axis=1),
+                use_container_width=True,
+                hide_index=True
+            )
 
-                if len(idx) > 0:
-                    idx = idx[0]
-                    if int(df.loc[idx, "Đã học"]) < int(df.loc[idx, "Tổng buổi"]):
-                        df.loc[idx, "Đã học"] += 1
+            checked_ids = st.multiselect(
+                "Chọn học viên đã học buổi này",
+                class_df["Mã HV"].tolist(),
+                format_func=lambda x: class_df.loc[class_df["Mã HV"] == x, "Họ tên"].values[0]
+            )
 
-            save_data(df)
-            st.success("Đã cập nhật số buổi.")
-            st.rerun()
+            if st.button("Điểm danh / Tăng buổi"):
+                for hv_id in checked_ids:
+                    idx = df[df["Mã HV"] == hv_id].index
+
+                    if len(idx) > 0:
+                        idx = idx[0]
+                        if int(df.loc[idx, "Đã học"]) < int(df.loc[idx, "Tổng buổi"]):
+                            df.loc[idx, "Đã học"] += 1
+
+                save_data(df)
+                st.success("Đã cập nhật số buổi.")
+                st.rerun()
 
 with tab3:
     st.subheader("Danh sách học viên")
@@ -199,7 +247,37 @@ with tab3:
     if df.empty:
         st.warning("Chưa có học viên.")
     else:
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(
+            df.style.apply(highlight_done, axis=1),
+            use_container_width=True,
+            hide_index=True
+        )
+
+    st.divider()
+
+    st.subheader("Cập nhật tiền dạy")
+
+    if not df.empty:
+        money_id = st.selectbox(
+            "Chọn học viên cần cập nhật tiền dạy",
+            df["Mã HV"].tolist(),
+            format_func=lambda x: df.loc[df["Mã HV"] == x, "Họ tên"].values[0],
+            key="money_update"
+        )
+
+        current_money = df.loc[df["Mã HV"] == money_id, "Đã nhận tiền dạy"].values[0]
+
+        new_money = st.selectbox(
+            "Trạng thái tiền dạy",
+            ["Chưa", "Có"],
+            index=1 if current_money == "Có" else 0
+        )
+
+        if st.button("Cập nhật tiền dạy"):
+            df.loc[df["Mã HV"] == money_id, "Đã nhận tiền dạy"] = new_money
+            save_data(df)
+            st.success("Đã cập nhật trạng thái tiền dạy.")
+            st.rerun()
 
     st.divider()
 
@@ -209,7 +287,8 @@ with tab3:
         delete_id = st.selectbox(
             "Chọn học viên cần xóa",
             df["Mã HV"].tolist(),
-            format_func=lambda x: df.loc[df["Mã HV"] == x, "Họ tên"].values[0]
+            format_func=lambda x: df.loc[df["Mã HV"] == x, "Họ tên"].values[0],
+            key="delete_student"
         )
 
         confirm_delete = st.checkbox("Tôi xác nhận muốn xóa học viên này")
