@@ -177,10 +177,12 @@ def ca_status(time_range):
     end = datetime.strptime(end_s, "%H:%M").time()
 
     if start <= current < end:
-        return "Đang diễn ra", "now", "●"
+        return "Đang diễn ra", "🟡", "now"
+
     if current < start:
-        return "Sắp tới", "soon", "●"
-    return "Đã qua", "past", "●"
+        return "Sắp tới", "🔵", "soon"
+
+    return "Đã qua", "⚫", "past"
 
 
 def mark_attendance(df, hv_id):
