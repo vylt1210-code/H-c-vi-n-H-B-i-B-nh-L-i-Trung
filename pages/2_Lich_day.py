@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime, time
+from streamlit_autorefresh import st_autorefresh
 from utils.style import setup_page, sidebar_brand, hero, section_image
 from utils.database import load_students, save_students, load_busy_slots, get_students_by_slot, highlight_done
 from utils.constants import DAYS, CAS, POOL_IMAGE_PATH
