@@ -565,12 +565,20 @@ def page_students(df, busy_slots):
             save_btn = st.form_submit_button("💾 Cập nhật", use_container_width=True)
 
             if save_btn:
-                df.loc[idx, ["Họ tên", "SĐT", "Khóa học", "Ngày đăng ký", "Lịch học", "Tổng buổi", "Đã học", "Trạng thái khóa", "Đã nhận tiền dạy", "Ghi chú"]] = [
-                    ename, ephone, ecourse, eregister, eschedule, int(etotal), int(elearned), emoney, enote
-                ]
-                save_students(df)
-                st.success("Đã cập nhật.")
-                st.rerun()
+    df.loc[idx, "Họ tên"] = ename
+    df.loc[idx, "SĐT"] = ephone
+    df.loc[idx, "Khóa học"] = ecourse
+    df.loc[idx, "Ngày đăng ký"] = eregister
+    df.loc[idx, "Lịch học"] = eschedule
+    df.loc[idx, "Tổng buổi"] = int(etotal)
+    df.loc[idx, "Đã học"] = int(elearned)
+    df.loc[idx, "Trạng thái khóa"] = estatus
+    df.loc[idx, "Đã nhận tiền dạy"] = emoney
+    df.loc[idx, "Ghi chú"] = enote
+
+    save_students(df)
+    st.success("Đã cập nhật.")
+    st.rerun()
 
         if st.button("🎓 Kết thúc khóa học viên này", use_container_width=True):
             df.loc[df["Mã HV"] == sid, "Trạng thái khóa"] = "Kết thúc"
