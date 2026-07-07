@@ -216,7 +216,7 @@ def mark_attendance(df, hv_id):
     df.loc[idx, "Đã học"] = next_session
 
     if next_session >= total:
-    df.loc[idx, "Trạng thái khóa"] = "Kết thúc"
+        df.loc[idx, "Trạng thái khóa"] = "Kết thúc"
 
     return df
 
