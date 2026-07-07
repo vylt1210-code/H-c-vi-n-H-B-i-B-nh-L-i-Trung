@@ -208,14 +208,12 @@ def mark_attendance(df, hv_id):
     if learned >= total:
         return df
 
-    for col in ATTENDANCE_COLS:
-        value = str(df.loc[idx, col]).strip()
-        if value == "" or value.lower() == "nan":
-            df.loc[idx, col] = today_short()
-            break
+next_session = learned + 1
 
-    new_learned = learned + 1
-    df.loc[idx, "Đã học"] = new_learned
+    if next_session <= len(ATTENDANCE_COLS):
+        df.loc[idx, ATTENDANCE_COLS[next_session - 1]] = today_short()
+
+        df.loc[idx, "Đã học"] = next_session
 
     if new_learned >= total:
         df.loc[idx, "Trạng thái khóa"] = "Kết thúc"
