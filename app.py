@@ -227,7 +227,28 @@ def progress_pct(row):
     total = max(int(row.get("Tổng buổi", 12)), 1)
     done = int(row.get("Đã học", 0))
     return min(100, int(done / total * 100))
+def students_by_month(df, year=None, months=[6, 7, 8, 9]):
+    if df.empty:
+        return {m: 0 for m in months}
 
+    temp = df.copy()
+    temp["Ngày đăng ký"] = pd.to_datetime(
+        temp["Ngày đăng ký"],
+        format="%d/%m/%Y",
+        errors="coerce"
+    )
+
+    if year is None:
+        year = datetime.now(VN_TZ).year
+
+    temp = temp[temp["Ngày đăng ký"].dt.year == year]
+
+    result = {}
+
+    for m in months:
+        result[m] = len(temp[temp["Ngày đăng ký"].dt.month == m])
+
+    return result
 
 # =========================
 # GIAO DIỆN
@@ -372,7 +393,26 @@ def page_dashboard(df, busy_slots):
     with c2: metric("HV hôm nay", today_students, "📅")
     with c3: metric("Sắp hết buổi", almost_done, "⚠️")
     with c4: metric("Chưa nhận tiền", unpaid, "💰")
+    report = students_by_month(df)
 
+    st.markdown(
+        "<div class='section-title'>📊 Báo cáo học viên theo tháng</div>",
+        unsafe_allow_html=True
+    )
+
+    m1, m2, m3, m4 = st.columns(4)
+
+    with m1:
+        metric("Tháng 6", report[6], "👨‍🎓")
+
+    with m2:
+        metric("Tháng 7", report[7], "👨‍🎓")
+
+    with m3:
+        metric("Tháng 8", report[8], "👨‍🎓")
+
+    with m4:
+        metric("Tháng 9", report[9], "👨‍🎓")
     st.markdown("<div class='section-title'>Lịch hôm nay</div>", unsafe_allow_html=True)
     for ca, tr in CAS.items():
         slot = f"{today} - {ca}"
