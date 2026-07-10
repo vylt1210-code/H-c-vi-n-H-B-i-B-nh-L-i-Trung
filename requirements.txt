@@ -1,5 +1,0 @@
-streamlit
-pandas
-streamlit-autorefresh
-gspread
-google-auth
